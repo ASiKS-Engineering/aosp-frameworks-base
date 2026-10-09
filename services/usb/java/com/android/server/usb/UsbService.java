@@ -145,17 +145,21 @@ public class UsbService extends IUsbManager.Stub {
 
         @Override
         public void onUserSwitching(TargetUser from, TargetUser to) {
-            FgThread.getHandler()
-                    .postAtFrontOfQueue(() -> mUsbService.onSwitchUser(to.getUserIdentifier()));
+            // mUsbService is created asynchronously in onStart(). On multi-user (automotive) boots
+            // the initial user switch can arrive before that finished, so wait without blocking.
+            mOnStartFinished.thenRun(() -> FgThread.getHandler()
+                    .postAtFrontOfQueue(() -> mUsbService.onSwitchUser(to.getUserIdentifier())));
         }
 
         @Override
         public void onUserStopping(TargetUser userInfo) {
+            mOnStartFinished.join();
             mUsbService.onStopUser(userInfo.getUserHandle());
         }
 
         @Override
         public void onUserUnlocking(TargetUser userInfo) {
+            mOnStartFinished.join();
             mUsbService.onUnlockUser(userInfo.getUserIdentifier());
         }
     }
